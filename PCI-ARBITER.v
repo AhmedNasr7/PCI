@@ -13,10 +13,9 @@ assign grants=~intGrants;
 
 always @ (posedge clk)begin
 
-	assign intRequests=~requests;
-//	$display("REquests are as follows:::::%b 		&& intRequests::::%b \n____________________________________________________\n",requests,intRequests);
 	
-	if (frame==1)begin
+	intRequests=~requests;
+	
 		if (intRequests>=16)begin
 			#1
 			intGrants=16;
@@ -45,7 +44,7 @@ always @ (posedge clk)begin
 					intGrants=1;
 				end
 		end
-	end
+	
 end
 
 endmodule
@@ -62,7 +61,7 @@ ARBITER masterMind(GRANTS,REQUESTS,FRAME,IREADY,CLK);
 
 
 initial begin 
-$monitor($time ,"	grants::%b		requests::%b		frame::%b		iReady::%b" , GRANTS , REQUESTS , FRAME , IREADY);
+$monitor($time ,"	grants::%b		requests::%b		frame::%b	   iReady::%b" , GRANTS , REQUESTS , FRAME , IREADY);
 CLK=0;IREADY=1;FRAME=1;REQUESTS=5'b11111;		//no requests
 REQUESTS=0;
 CLK=0;IREADY=1;FRAME=1;REQUESTS=5'b01111;		// highest priority request
