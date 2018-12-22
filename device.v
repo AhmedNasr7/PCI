@@ -1,12 +1,12 @@
 /* file contains device module */
 
-module device(request, iframe, AD, CBE, iready, tready, devsel, grant, force_req, contact2address, clk);
+module device(request, iframe, AD, CBE, iready, tready, devsel, grant, force_req, rw, contact2address, clk);
 
 /*********** inputs - Outputs *******************/
 
-input clk, grant, force_req;
+input clk, grant, force_req, rw;
 input [31: 0] contact2address;
-output request;
+output reg request;
 inout [31: 0] AD;
 inout iframe, CBE, iready, tready, devsel;
 
@@ -44,9 +44,28 @@ assign CBE = CBE_io? CBE_reg: 4'bzzzz;
 */
 
 
+always @ (posedge clk)
+begin
+    if (force_req) // inititor mode
+        #1
+        request <= 0; // send request to Arbiter
+        if (!grant) // granted, start using bus as initiator
+        begin
+            if (rw) // means write
+                #1 
+                // start taking over the bus as initiator in write mode 
+                iframe_io <= 1'b1; AD_io <= 1'b1; CBE_io <= 1'b1; iready_io <= 1'b1; // make them output
+                iframe_reg <= 1'b0; // make it active, indicate to take over the bus
+                AD_reg <= contact2address;
+                
+
+            
+
+        end
+
+end
 
 
- 
 
 
 endmodule
