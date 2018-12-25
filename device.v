@@ -2,7 +2,17 @@
 
 module device(request, iframe, AD, CBE, iready, tready, devsel, grant, force_req, rw, contactAddress, data, BE,  clk);
 
-/*********** inputs - Outputs *******************/
+/* request: output send to Arbiter to request the Bus [Active low]. 
+*  grant: input from the arbiter to inform the device that he has the bus now [Active low].
+*  force_req: input from tb to make the device send request to the arbiter and take over the bus [Active high]
+*  rw: input to decide reading or writing: specified in the master mode, W: 1, R: 0.
+*  contactAddress: input to specify the target device address, only for master mode.
+*  data: data to be sent: only for master mode.
+*  BE: Byte enable bits input: only for master mode [used to specify which bytes to be read by the target].
+*  clk: reading data from the bus with posedge clk, writing data to the bus with negede clk [toggling every 1 time unit].
+*/ 
+
+/*********** Module inputs - Outputs *******************/
 
 input clk, grant, force_req, rw;
 input [31: 0] contactAddress;
@@ -20,7 +30,7 @@ reg [31: 0] AD_reg;
 reg [3: 0] CBE_reg;
 
 reg [31: 0] dev_address; // contains device internal address
-reg [31: 0] memory [9: 0]; // 10 rows (words) of memory
+reg [31: 0] memory [0: 9]; // 10 rows (words) of memory
 reg [3: 0] memory_counter; // to store the memory row that is in turn
 reg [31: 0] data_buffer;
 
@@ -56,6 +66,7 @@ begin
         if (!grant) // granted, start using bus as initiator
         begin
             if (rw) // write operation
+            begin
                if ((tready && devsel) && iready == 1'b1) // at the beginning of a transaction and need to communicate with a target device first.
                begin
                      #1 
@@ -75,20 +86,43 @@ begin
                 AD_reg <= data;
                 CBE_reg <= BE;  
                 end
-                
-                /********** End of Master write -> except for some corner cases [if target is not ready case] ****************************************/
-                
+            end // end of initiator mode -- write 
+                /********** End of Master write -> except for some corner cases [if target is not ready case, and finish data transfer case] ****************************************/
+        
+        else if (!rw) // master read
+            begin
+                if ((tready && devsel) && iready == 1'b1) // at the beginning of a transaction and need to communicate with a target device first.
+                begin
+                    #1
+                    iframe_io <= 1'b1; AD_io <= 1'b1; CBE_io <= 1'b1; iready_io <= 1'b1; // make them output
+                    iframe_reg <= 1'b0; // activate it, indicate to take over the bus
+                AD_reg <= contactAddress; // put the address of the target device on the AD lines.
+                CBE_reg <= 4'b0000; // means write
+                #1
+                iready_reg <= 0; // at this point target is ready to transfer data over the data lines.
+                memory_counter <= 0;
+                end // end of master read device selecting phase
+                else if ((!tready && !devsel) && iready == 1'b0) // target device responded, and we are ready 
+                begin 
+                AD_io <= 1'b0; // make it input to read from AD bus
+                data_buffer <= AD; // taking data from the bus, and storing it in internal memory register.
+                memory[memory_counter] <= data_buffer;
+                memory_counter <= memory_counter + 1; // increment counter
+                if (memory_counter == 9) memory_counter <= 0;
+                end // end of master read data receiving
+
+
+            end // end of master read mode.
+
 
                 
 
 
             
 
-        end
-
-end
+        end // end of initiator mood if 
 
 
 
-
+end // end of always block 
 endmodule
