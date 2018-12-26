@@ -352,13 +352,13 @@ $monitor($time,"\ngrants:::::%b         requests::::::%b",grant,request);
 
 #2
 data=32'b01110110011001110111011001100111;
-rw=0;force_req=1;contactAddress=20;BE1=4'b1000;BE2=4'b0000;
+rw=0;force_req=0;contactAddress=20;BE1=4'b1000;BE2=4'b0000;
 //AD<=32'b00000000000000000000000000010100;
 
 
 #2
 data=32'b01110110011001110111011001100000;
-rw=1;force_req=0;contactAddress=20;BE1=4'b1000;BE2=4'b0000;
+rw=1;force_req=1;contactAddress=20;BE1=4'b1000;BE2=4'b0000;
 //AD<=32'b00000000000000000000000000010100;
 /*
 #2
