@@ -1,6 +1,6 @@
 /* file contains device module */
 
-module device(request, iframe, AD, CBE, iready, tready, devsel, grant, force_req, rw, contactAddress, data, BE,  clk);
+module device(request, iframe, AD, CBE, iready, tready, devsel, grant, force_req, rw, contactAddress, device_address, data, BE,  clk);
 
 /* request: output send to Arbiter to request the Bus [Active low]. 
 *  grant: input from the arbiter to inform the device that he has the bus now [Active low].
@@ -17,6 +17,7 @@ module device(request, iframe, AD, CBE, iready, tready, devsel, grant, force_req
 input clk, grant, force_req, rw;
 input [31: 0] contactAddress;
 input [31: 0] data;
+input [31: 0] device_address;
 input [3: 0] BE;
 output reg request;
 inout [31: 0] AD;
@@ -52,10 +53,11 @@ assign CBE = CBE_io? CBE_reg: 4'bzzzz;
 
 //assign data_buffer = AD;
 
-/** To be added: 
-* initiator code:
-* target code
-*/
+initial 
+begin 
+dev_address <= device_address;
+memory_counter <= 0;
+end
 
 
 always @ (posedge clk)
@@ -160,6 +162,22 @@ begin
         end // end of initiator mood if 
 
 
-
 end // end of always block 
 endmodule
+
+/******** TB ***********************/ 
+
+
+/*
+
+module pci_tb();
+
+
+
+
+
+
+module device(request, iframe, AD, CBE, iready, tready, devsel, grant, force_req, rw, contactAddress, data, BE,  clk);
+endmodule
+
+*/
