@@ -1,5 +1,6 @@
 /* file contains device module */
 /*COMMENTS ON LINES 21,23,84, 115-116 ,132-135 , 137 , 164*/
+
 module device(request, iframe, AD, CBE, iready, tready, devsel, grant, force_req, rw, contactAddress, device_address, data, BE,  clk);
 
 /* request: output send to Arbiter to request the Bus [Active low]. 
@@ -102,11 +103,12 @@ begin
                     iframe_reg <= 1'b0; // activate it, indicate to take over the bus
                     AD_reg <= contactAddress; // put the address of the target device on the AD lines.
                     CBE_reg <= 4'b1000; // means write
-                    #1              //CLOCK EDGE RISES
+                    #1
                     iready_reg <= 0; // at this point target is ready to transfer data over the data lines.
                     
                     // THIS WILL BE ON THE RISING EDGE OF A NEW CLOCK CYCLE , SO SHOULDN'T WE REMOVE THIS PART ? IT WILL BE HANDELED IN THE NEXT ELSE IF CASE
                     AD_reg <= data;                                 
+                    $display("BE is :: %b",BE);
                     CBE_reg <= BE;
                 end
                 else if(!tready && !devsel) // this condition means: initiator contacted target device by putting its address
@@ -118,7 +120,7 @@ begin
             end // end of initiator mode -- write 
                 /********** End of Master write -> except for some corner cases [if target is not ready case, and finish data transfer case] ****************************************/
         
-            else if ( BE==4'b0000) // master read
+            else if (BE==4'b0000) // master read
             begin
                 if ((tready && devsel) && iready == 1'b1) // at the beginning of a transaction and need to communicate with a target device first.
                 begin
@@ -129,7 +131,7 @@ begin
                     iframe_reg <= 1'b0; // activate it, indicate to take over the bus
                     AD_reg <= contactAddress; // put the address of the target device on the AD lines.
                     CBE_reg <= 4'b0000; // means read
-                    #1
+                    
                     iready_reg <= 0; // at this point target is ready to transfer data over the data lines.
                     //memory_counter <= 0;
                 end // end of master read device selecting phase
@@ -155,7 +157,7 @@ begin
         
         request <= 1'b1; // send cancel request to Arbiter.
         iframe_io <= 1'b0; AD_io <= 1'b0; CBE_io <= 1'b0; iready_io <= 1'b0; // make them input.
-        tready_io <= 1'b1; devsel_io <= 1'b1; // make them input
+        //tready_io <= 1'b0; devsel_io <= 1'b0; // make them input
        
         if (!iframe) // some device has taken over the bus
         begin
@@ -166,28 +168,40 @@ begin
               //  memory_counter <= 0;
                 if (BE == 4'b1000) // write mood, receive data and store it.
                 begin
-                    #1
+                    //#1
                     tready_reg <= 1'b0;
                     devsel_reg <= 1'b0;
                     data_buffer <= AD; // taking data from the bus, and storing it in internal memory register.
                     memory[memory_counter] <= data_buffer;
+                     //$display("memory = %b    memory counter = %d\n", memory[memory_counter], memory_counter);
+
                     memory_counter <= memory_counter + 1; // increment counter
                     if (memory_counter == 9) memory_counter <= 0; // reset counter.   
                 end // end of target write mood.
 
                 else if (BE == 4'b0000) // read mood, send data till iready or iframe are deactivated.
                 begin // this section needs to be examined carefully
-                    #1                                                          //WHY DELAY ??
+                tready_io <= 1'b1; devsel_io <= 1'b1;
                     if (tready && devsel)
                     begin
                     tready_reg <= 1'b0;
                     devsel_reg <= 1'b0;
+                    $display("AD_io becomes 1");
                     AD_io <= 1'b1; // output to write on it.
                     end  
-                    /*
+                    /*=
                     FLOW OF DATA HERE SHALL BE FROM TARGET TO INITIATOR , SO DATA TO BE PUT ON AD_reg SHALL BE MEMORY[i] , WHERE i IS SPECIFIED INITIALLY ON THE 'AD'
                     */
+                    AD_io <= 1'b1; // output to write on it.
+                    $display("AD_io becomes 1111");
                     AD_reg <= data;
+                    //$monitor("ADREG = %b\n", AD_reg);
+                    //$monitor("AD = %b\n", AD);
+
+
+                    
+
+                    
 
                 end // end of target read mood
 
@@ -197,6 +211,7 @@ begin
 
 end // end of always block 
 endmodule
+
 
 
 
@@ -337,7 +352,7 @@ wire  iframe, iready, tready, devsel;
 ARBITER arbiter (grant[4:0],{3'b111,request[1:0]},iframe,iready,clk);
 
 device  mydevice1       (request[0], iframe, AD, CBE, iready, tready, devsel, grant[0], force_req[0] , !rw, contactAddress, 20 , data, BE1,  clk);
-device  thirdDivision   (request[1], iframe, AD, CBE, iready, tready, devsel, grant[1], force_req[1] , rw, contactAddress, 10 , data, BE3,  clk);
+device  thirdDivision   (request[1], iframe, AD, CBE, iready, tready, devsel, grant[1], force_req[1] , rw, contactAddress, 10 , data, BE2,  clk);
 
 
 
@@ -361,38 +376,54 @@ rw=1;force_req=1;contactAddress=10;BE1=4'b1000;BE2=4'b0000;
 //AD<=32'b00000000000000000000000000010100;
 
 #2
-data=32'd255;
+data=32'd254;
 rw=1;force_req= 1;contactAddress=10;BE1=4'b1000;BE2=4'b0000;
 //AD<=32'b00000000000000000000000000010100;
 
 
 #2
 data=32'd1025;
-rw=1;force_req=1;contactAddress=10;BE2=4'b1000;BE1=4'b0000;
+rw=1;force_req=1;contactAddress=10;BE1=4'b1000;BE2=4'b0000;
 //AD<=32'b00000000000000000000000000010100;
-/********************************************************it stops here*****************************************************************************/
 
 #2
 data=32'd254;
-rw=1;force_req=1;contactAddress=10;BE2=4'b1000;BE1=4'b0000;
+rw=1;force_req=2;contactAddress=10;BE2=4'b1000;BE1=4'b0000;
 //AD<=32'b00000000000000000000000000010100;
 
 
 #2
 data=32'd1024;
-rw=1;force_req=1;contactAddress=10;BE2=4'b1000;BE1=4'b0000;
+rw=1;force_req=2;contactAddress=10;BE2=4'b1000;BE1=4'b0000;
 //AD<=32'b00000000000000000000000000010100;
 
 #2
 data=32'd252;
-rw=1;force_req=1;contactAddress=10;BE2=4'b1000;BE1=4'b0000;
+rw=1;force_req=2;contactAddress=10;BE2=4'b1000;BE1=4'b0000;
 //AD<=32'b00000000000000000000000000010100;
 
 
 #2
 data=32'd1024;
-rw=1;force_req=1;contactAddress=10;BE2=4'b1000;BE1=4'b0000;
+rw=1;force_req=2;contactAddress=10;BE2=4'b1000;BE1=4'b0000;
 //AD<=32'b00000000000000000000000000010100;
+
+
+#2
+data=32'd1024;
+rw=1;force_req=3;contactAddress=10;BE2=4'b1000;BE1=4'b0000;
+//AD<=32'b00000000000000000000000000010100;
+
+#2
+data=32'd252;
+rw=1;force_req=2;contactAddress=10;BE2=4'b1000;BE1=4'b0000;
+//AD<=32'b00000000000000000000000000010100;
+
+#2
+data=32'd1024;
+rw=1;force_req=2;contactAddress=10;BE2=4'b1000;BE1=4'b0000;
+//AD<=32'b00000000000000000000000000010100;
+
 $display("\nAD: %b",AD);
 /*
 #2
