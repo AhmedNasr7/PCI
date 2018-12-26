@@ -55,8 +55,8 @@ assign CBE = CBE_io? CBE_reg: 4'bzzzz;
 //assign data_buffer = AD;
 
 initial begin
-iframe_io=0; AD_io=0; CBE_io=0; iready_io=0; tready_io=0; devsel_io=0;
-iframe_reg=0; iready_reg=0; tready_reg=0; devsel_reg=0;
+iframe_io=1; AD_io=1; CBE_io=1; iready_io=1; tready_io=1; devsel_io=1;
+iframe_reg=1; iready_reg=1; tready_reg=1; devsel_reg=1;
 AD_reg=0;
 CBE_reg=0;
 
@@ -85,8 +85,9 @@ end
 
 always @ (posedge clk)
 begin
-    if (force_req) // inititor mode
-        $display("\n\n  IN FORCE REQ , device with add::%d \n\n",device_address);
+    if (force_req)
+    begin // inititor mode
+        //$display("\nIN FORCE REQ , device with add::%d",device_address);
         request <= 0; // send request to Arbiter
         if (!grant) // granted, start using bus as initiator
         begin
@@ -94,25 +95,25 @@ begin
             begin
                 if ((tready && devsel) && iready == 1'b1) // at the beginning of a transaction and need to communicate with a target device first.  (target & initiator not ready)
                 begin
-                #1 
-                // start taking over the bus as initiator in write mode 
-                iframe_io <= 1'b1; AD_io <= 1'b1; CBE_io <= 1'b1; iready_io <= 1'b1; // make them output    , this specific device becomes initiator
-                tready_io <= 1'b0; devsel_io <= 1'b0; // input  (not this device that sets tready & devSel)
-                iframe_reg <= 1'b0; // activate it, indicate to take over the bus
-                AD_reg <= contactAddress; // put the address of the target device on the AD lines.
-                CBE_reg <= 4'b1000; // means write
-                #1              //CLOCK EDGE RISES
-                iready_reg <= 0; // at this point target is ready to transfer data over the data lines.
-                
-                // THIS WILL BE ON THE RISING EDGE OF A NEW CLOCK CYCLE , SO SHOULDN'T WE REMOVE THIS PART ? IT WILL BE HANDELED IN THE NEXT ELSE IF CASE
-                AD_reg <= data;                                 
-                CBE_reg <= BE;
+                    #1 
+                    // start taking over the bus as initiator in write mode 
+                    iframe_io <= 1'b1; AD_io <= 1'b1; CBE_io <= 1'b1; iready_io <= 1'b1; // make them output    , this specific device becomes initiator
+                    tready_io <= 1'b0; devsel_io <= 1'b0; // input  (not this device that sets tready & devSel)
+                    iframe_reg <= 1'b0; // activate it, indicate to take over the bus
+                    AD_reg <= contactAddress; // put the address of the target device on the AD lines.
+                    CBE_reg <= 4'b1000; // means write
+                    #1              //CLOCK EDGE RISES
+                    iready_reg <= 0; // at this point target is ready to transfer data over the data lines.
+                    
+                    // THIS WILL BE ON THE RISING EDGE OF A NEW CLOCK CYCLE , SO SHOULDN'T WE REMOVE THIS PART ? IT WILL BE HANDELED IN THE NEXT ELSE IF CASE
+                    AD_reg <= data;                                 
+                    CBE_reg <= BE;
                 end
                 else if(!tready && !devsel) // this condition means: initiator contacted target device by putting its address
                 begin
-                #1
-                AD_reg <= data;
-                CBE_reg <= BE;  
+                    #1
+                    AD_reg <= data;
+                    CBE_reg <= BE;  
                 end
             end // end of initiator mode -- write 
                 /********** End of Master write -> except for some corner cases [if target is not ready case, and finish data transfer case] ****************************************/
@@ -139,18 +140,18 @@ begin
                     //BUFFER IS WHAT SHOULD WORK INCREMENTALLY , AND MEMORY SHALL BE ADDRESSED BY SPECIFYING ITS WORD TO ADDRESS;
                     memory[memory_counter] <= data_buffer;
                     memory_counter <= memory_counter + 1; // increment counter
-                if (memory_counter == 9) memory_counter <= 0;
+                    if (memory_counter == 9)
+                        memory_counter <= 0;
                 end // end of master read data receiving
                 /*
                 * to be added: 
                 * cancel or pause transaction if force request = 0
                 */
-        $display("\nLEAVING1111\n");
-    end // end of master read mode.
-
-
-    else if (!force_req) // not initiator 
-        $display("\n\n  IN  NO FORCE REQ \n\n");
+            end // end of master read mode.
+        end    
+    end
+    else if (!force_req)
+    begin // not initiator 
         
         request <= 1'b1; // send cancel request to Arbiter.
         iframe_io <= 1'b0; AD_io <= 1'b0; CBE_io <= 1'b0; iready_io <= 1'b0; // make them input.
@@ -160,6 +161,7 @@ begin
         begin
             if (AD == dev_address)
             begin
+          //      $display("\nIN  NO FORCE REQ    device with add::%d",device_address);
                 tready_io <= 1'b1; devsel_io <= 1'b1; // output.     
               //  memory_counter <= 0;
                 if (CBE == 4'b1000) // write mood, receive data and store it.
@@ -191,7 +193,6 @@ begin
 
             end // target mood end
         end // end of iframe if checking
-    $display("\nLEAVING\n");
     end // end of initiator mood if 
 
 end // end of always block 
@@ -204,45 +205,60 @@ module ARBITER(grants,requests,frame,iReady,clk);
 input [4:0] requests;
 output [4:0] grants;
 input frame,iReady,clk;
-reg [4:0] intRequests,intGrants;			//internal , meaning inside module , they are invert of the externals , to make it easier for me
+reg [4:0] intRequests;			//internal , meaning inside module , they are invert of the externals , to make it easier for me
+reg [4:0] intGrants;
 
 assign grants=~intGrants;
 
+initial begin
+    intGrants=0;
+end
 
 always @ (posedge clk)begin
 
 	
-	intRequests=~requests;
+	intRequests<=~requests;
+    if (intRequests[4]==1)begin
+        #1
+        $display("\nreqs are::%b\n",requests); 
+        intGrants=16;
+    end
+    else if (intRequests[3]==1)begin
+        if (frame==1 || (frame==0&& intGrants[4]!=1))begin
+            #1
+            $display("\nreqs are::%b\n",requests);
+            intGrants=8;
+        end
+    end
+    else if (intRequests[2]==1)begin
+        if (frame==1 || (frame==0&& intGrants[4]!=1 && intGrants[3]!=1 ))begin
+            #1
+            $display("\nreqs are::%b\n",requests);
+            intGrants=4;
+        end
+    end
+    else if (intRequests[1]==1)begin
+        if (frame==1 || (frame==0&& intGrants < 4 ))begin
+            #1
+            $display("\nreqs are::%b\n",requests);
+            intGrants=2;
+        end
+    end
+    else if (intRequests==1)begin
+            if (frame==1)begin
+                #1
+                $display("\nreqs are::%b\n",requests);
+                intGrants=1;
+            end
+    end
+    else if (intRequests==0)begin
+//        $display("NO SINGLE CONDITION WAS MET IN ARBITER");
+    end
 	
-		if (intRequests>=16)begin
-			#1
-			intGrants=16;
-		end
-		else if (intRequests>=8)begin
-			if (frame==1 || (frame==0&& intGrants[4]!=1))begin
-				#1
-				intGrants=8;
-			end
-		end
-		else if (intRequests>=4)begin
-			if (frame==1 || (frame==0&& intGrants[4]!=1 && intGrants[3]!=1 ))begin
-				#1
-				intGrants=4;
-			end
-		end
-		else if (intRequests>=2)begin
-			if (frame==1 || (frame==0&& intGrants < 4 ))begin
-				#1
-				intGrants=2;
-				end
-		end
-		else if (intRequests==1)begin
-				if (frame==1)begin
-					#1
-					intGrants=1;
-				end
-		end
-	
+end
+
+always @(requests or grants)begin
+    $display($time,"\nreqs are::%b     &&     intGrants are::%b     && intRequests are::%b",requests,intGrants,intRequests);
 end
 
 endmodule
@@ -317,10 +333,10 @@ wire [31: 0] AD;
 wire  iframe, iready, tready, devsel;
 
 
-ARBITER arbiter (grant,request,iframe,iready,clk);
+ARBITER arbiter (grant[4:0],{3'b111,request[1:0]},iframe,iready,clk);
 
-device  mydevice1       (request[0], iframe, AD, CBE, iready, tready, devsel, grant[0], force_req[0] , rw, contactAddress, 20 , data, BE1,  clk);
-device  thirdDivision   (request[2], iframe, AD, CBE, iready, tready, devsel, grant[2], force_req[2] , rw, contactAddress, 10 , data, BE3,  clk);
+device  mydevice1       (request[0], iframe, AD, CBE, iready, tready, devsel, grant[0], force_req[0] , !rw, contactAddress, 20 , data, BE1,  clk);
+device  thirdDivision   (request[1], iframe, AD, CBE, iready, tready, devsel, grant[1], force_req[1] , rw, contactAddress, 10 , data, BE3,  clk);
 
 
 
@@ -328,34 +344,54 @@ initial
 begin
 rw=1;force_req=0;contactAddress=20;BE1=4'b1000;BE2=4'b0000;
 //AD<=32'b00000000000000000000000000010100; 
-$monitor ($time,"AD = %b      iframe = %b     \n CBE = %b    iready = %b     tready = %b     devsel = %b    rw = %b \n                                      grant = %b      request=%b  ", AD, iframe,CBE,iready,tready, devsel , rw ,grant , request  );
+$monitor ($time,"\nAD = %b      iframe = %b     \n                   CBE = %b    iready = %b     tready = %b     devsel = %b    rw = %b \n                           grant = %b      request=%b  ", AD, iframe,CBE,iready,tready, devsel , rw ,grant , request  );
+//AD, iframe,CBE,iready,tready, devsel , rw ,grant , request
 //test write 
 #2
 data=32'b01110110011001110111011001100111;
-rw=0;force_req=1;contactAddress=20;BE1=4'b1000;BE2=4'b0000;
+rw=0;force_req=2;contactAddress=20;BE1=4'b1000;BE2=4'b0000;
 //AD<=32'b00000000000000000000000000010100;
 
 #2
 data=32'b01110110011001110111011001100000;
-rw=1;force_req=1;contactAddress=20;BE1=4'b1000;BE2=4'b0000;
+rw=1;force_req=3;contactAddress=20;BE1=4'b1000;BE2=4'b0000;
 //AD<=32'b00000000000000000000000000010100;
 
 #2
 data=32'b01110110011001110111011001111111;
-rw=1;force_req=1;contactAddress=20;BE1=4'b1000;BE2=4'b0001;
+rw=1;force_req=2;contactAddress=20;BE1=4'b1000;BE2=4'b0001;
+//AD<=32'b00000000000000000000000000010100;
+
+#2
+data=32'b01110110011001110111011001111111;
+rw=1;force_req=3;contactAddress=20;BE1=4'b1000;BE2=4'b0001;
+//AD<=32'b00000000000000000000000000010100;
+
+#2
+data=32'b01110110011001110111011001111111;
+rw=1;force_req=3;contactAddress=20;BE1=4'b1000;BE2=4'b0001;
+//AD<=32'b00000000000000000000000000010100;
+
+#2
+data=32'b01110110011001110111011001111111;
+rw=1;force_req=2;contactAddress=20;BE1=4'b1000;BE2=4'b0001;
 //AD<=32'b00000000000000000000000000010100;
 
 #10 
 data = 32'b00001111000011110000111100001111;
-rw=1;force_req=0;contactAddress=20;BE1=4'b1000;BE2=4'b0000;
+rw=1;force_req=1;contactAddress=20;BE1=4'b1000;BE2=4'b0000;
 //AD<=32'b00000000000000000000000000010100;
 
 #10 
 data = 32'b00000000111111110000000011111111;
-rw=1;force_req=0;contactAddress=20;BE1=4'b1000;BE2=4'b0000;
+rw=1;force_req=2;contactAddress=20;BE1=4'b1000;BE2=4'b0000;
 //AD<=32'b00000000000000000000000000010100;
 
 
+#2 
+data= 32'b11111111111111110000000000000000;
+rw<=1;force_req=3;contactAddress=20;BE1=4'b1000;BE2=4'b0000;
+//AD<=32'b00000000000000000000000000010100;
 #2 
 data= 32'b11111111111111110000000000000000;
 rw<=1;force_req=0;contactAddress=20;BE1=4'b1000;BE2=4'b0000;
