@@ -91,7 +91,7 @@ begin
         request <= 0; // send request to Arbiter
         if (!grant) // granted, start using bus as initiator
         begin
-            if (rw) // write operation
+            if (BE==4'b1000) // write operation
             begin
                 if ((tready && devsel) && iready == 1'b1) // at the beginning of a transaction and need to communicate with a target device first.  (target & initiator not ready)
                 begin
@@ -118,7 +118,7 @@ begin
             end // end of initiator mode -- write 
                 /********** End of Master write -> except for some corner cases [if target is not ready case, and finish data transfer case] ****************************************/
         
-            else if (!rw) // master read
+            else if ( BE==4'b0000) // master read
             begin
                 if ((tready && devsel) && iready == 1'b1) // at the beginning of a transaction and need to communicate with a target device first.
                 begin
@@ -164,7 +164,7 @@ begin
           //      $display("\nIN  NO FORCE REQ    device with add::%d",device_address);
                 tready_io <= 1'b1; devsel_io <= 1'b1; // output.     
               //  memory_counter <= 0;
-                if (CBE == 4'b1000) // write mood, receive data and store it.
+                if (BE == 4'b1000) // write mood, receive data and store it.
                 begin
                     #1
                     tready_reg <= 1'b0;
@@ -175,7 +175,7 @@ begin
                     if (memory_counter == 9) memory_counter <= 0; // reset counter.   
                 end // end of target write mood.
 
-                else if (CBE == 4'b0000) // read mood, send data till iready or iframe are deactivated.
+                else if (BE == 4'b0000) // read mood, send data till iready or iframe are deactivated.
                 begin // this section needs to be examined carefully
                     #1                                                          //WHY DELAY ??
                     if (tready && devsel)
@@ -343,14 +343,58 @@ device  thirdDivision   (request[1], iframe, AD, CBE, iready, tready, devsel, gr
 
 initial 
 begin
-rw=1;force_req=1;contactAddress=20;BE1=4'b1000;BE2=4'b0000;
+rw=1;force_req=1;contactAddress=10;BE1=4'b1000;BE2=4'b0000;
 //AD<=32'b00000000000000000000000000010100; 
 $monitor ($time,"\nAD = %b      iframe = %b     \n                   CBE = %b    iready = %b     tready = %b     devsel = %b    rw = %b \n                           grant = %b      request=%b  ", AD, iframe,CBE,iready,tready, devsel , rw ,grant , request  );
 //AD, iframe,CBE,iready,tready, devsel , rw ,grant , request
 //test write
 
 //$monitor($time,"\ngrants:::::%b         requests::::::%b",grant,request);
+#2
+data=32'd255;
+rw=1;force_req= 1;contactAddress=10;BE1=4'b1000;BE2=4'b0000;
+//AD<=32'b00000000000000000000000000010100;
 
+#2
+data=32'd1024;
+rw=1;force_req=1;contactAddress=10;BE1=4'b1000;BE2=4'b0000;
+//AD<=32'b00000000000000000000000000010100;
+
+#2
+data=32'd255;
+rw=1;force_req= 1;contactAddress=10;BE1=4'b1000;BE2=4'b0000;
+//AD<=32'b00000000000000000000000000010100;
+
+
+#2
+data=32'd1025;
+rw=1;force_req=1;contactAddress=10;BE2=4'b1000;BE1=4'b0000;
+//AD<=32'b00000000000000000000000000010100;
+/********************************************************it stops here*****************************************************************************/
+
+#2
+data=32'd254;
+rw=1;force_req=1;contactAddress=10;BE2=4'b1000;BE1=4'b0000;
+//AD<=32'b00000000000000000000000000010100;
+
+
+#2
+data=32'd1024;
+rw=1;force_req=1;contactAddress=10;BE2=4'b1000;BE1=4'b0000;
+//AD<=32'b00000000000000000000000000010100;
+
+#2
+data=32'd252;
+rw=1;force_req=1;contactAddress=10;BE2=4'b1000;BE1=4'b0000;
+//AD<=32'b00000000000000000000000000010100;
+
+
+#2
+data=32'd1024;
+rw=1;force_req=1;contactAddress=10;BE2=4'b1000;BE1=4'b0000;
+//AD<=32'b00000000000000000000000000010100;
+$display("\nAD: %b",AD);
+/*
 #2
 data=32'b01110110011001110111011001100111;
 rw=0;force_req=1;contactAddress=20;BE1=4'b1000;BE2=4'b0000;
@@ -401,7 +445,7 @@ rw<=1;force_req=3;contactAddress=20;BE1=4'b1000;BE2=4'b0000;
 data= 32'b11111111111111110000000000000000;
 rw<=1;force_req=0;contactAddress=20;BE1=4'b1000;BE2=4'b0000;
 //AD<=32'b00000000000000000000000000010100;
-
+*/
 end 
 initial 
 begin  
