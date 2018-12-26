@@ -5,10 +5,7 @@ from PyQt5.uic import loadUiType
 import sys
 from os import path
 import os
-
-
-
-
+from graph import *
 
 FORM_CLASS,_ = loadUiType(path.join(path.dirname(__file__), "main.ui"))
 
@@ -27,9 +24,16 @@ class MainApp(QMainWindow, FORM_CLASS):
 
 
 
+
+
     def setup_Ui(self):
         self.setWindowTitle("PCI Simulator")
         self.setFixedSize(900,600)
+        m= PlotCanvas(self, width=5, height=4)
+        m.move(0, 0)
+
+
+
 
 
 
@@ -40,7 +44,8 @@ class MainApp(QMainWindow, FORM_CLASS):
     def openFile(self):
         options = QFileDialog.Options()
         options |= QFileDialog.DontUseNativeDialog
-        self.fileName, _ = QFileDialog.getOpenFileName(self, "QFileDialog.getOpenFileName()", "", "Verilog Files (*.v)", options=options)
+
+        self.fileName, _ = QFileDialog.getOpenFileName(self, "Open file to simulate", "", "Verilog Files (*.v)", options=options)
         if self.fileName:
             self.file_path.setText(self.fileName)
         self.run_command = "'" + self.fileName[0:-7] + "'"
@@ -51,6 +56,7 @@ class MainApp(QMainWindow, FORM_CLASS):
     def run_code(self):
         os.system(self.compile_command)
         os.system(self.run_command)
+
 
 
 def main():
