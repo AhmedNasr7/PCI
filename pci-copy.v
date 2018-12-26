@@ -209,55 +209,56 @@ reg [4:0] intRequests;			//internal , meaning inside module , they are invert of
 reg [4:0] intGrants;
 
 assign grants=~intGrants;
-
+/*
 initial begin
     intGrants=0;
 end
-
+*/
 always @ (posedge clk)begin
 
 	
-	intRequests<=~requests;
+	intRequests=~requests;
     if (intRequests[4]==1)begin
-        #1
-        $display("\nreqs are::%b\n",requests); 
+    //    $display("\nrequests are::%b\n",requests); 
         intGrants=16;
     end
     else if (intRequests[3]==1)begin
-        if (frame==1 || (frame==0&& intGrants[4]!=1))begin
-            #1
-            $display("\nreqs are::%b\n",requests);
-            intGrants=8;
-        end
+//        if (frame!==0 || (frame!==1&& intGrants[4]!=1))begin
+        //    $display("\nrequests are::%b\n",requests);
+            intGrants<=8;
+//        end
     end
     else if (intRequests[2]==1)begin
-        if (frame==1 || (frame==0&& intGrants[4]!=1 && intGrants[3]!=1 ))begin
-            #1
-            $display("\nreqs are::%b\n",requests);
-            intGrants=4;
-        end
+//        if (frame!==0 || (frame!==1&& intGrants[4]!=1 && intGrants[3]!=1 ))begin
+        //    $display("\nreqs are::%b\n",requests);
+            intGrants<=4;
+//        end
     end
     else if (intRequests[1]==1)begin
-        if (frame==1 || (frame==0&& intGrants < 4 ))begin
-            #1
-            $display("\nreqs are::%b\n",requests);
-            intGrants=2;
-        end
+//    //    $display("\nreqs are::%b\n",requests);
+
+//        if (frame!==0 || (frame!==1&& intGrants < 4 ))begin
+        //    $display("\nreqs are::%b\n",requests);
+            intGrants<=2;
+//        end
     end
     else if (intRequests==1)begin
-            if (frame==1)begin
-                #1
-                $display("\nreqs are::%b\n",requests);
-                intGrants=1;
-            end
+//        //    $display("\nreqs are::%b\n",requests);
+//            if (frame!==0)begin
+          //    $display("\nreqs are::%b\n",requests);
+                intGrants<=1;
+//            end
     end
     else if (intRequests==0)begin
-//        $display("NO SINGLE CONDITION WAS MET IN ARBITER");
+        if (frame!==0)begin
+            intGrants<=0;
+//        //    $display("\nNO BODY WANTS A GRANT");
+        end
     end
 	
 end
 
-always @(requests or grants)begin
+always @(requests)begin
     $display($time,"\nreqs are::%b     &&     intGrants are::%b     && intRequests are::%b",requests,intGrants,intRequests);
 end
 
@@ -342,13 +343,13 @@ device  thirdDivision   (request[1], iframe, AD, CBE, iready, tready, devsel, gr
 
 initial 
 begin
-rw=1;force_req=0;contactAddress=20;BE1=4'b1000;BE2=4'b0000;
+rw=1;force_req=1;contactAddress=20;BE1=4'b1000;BE2=4'b0000;
 //AD<=32'b00000000000000000000000000010100; 
-//$monitor ($time,"\nAD = %b      iframe = %b     \n                   CBE = %b    iready = %b     tready = %b     devsel = %b    rw = %b \n                           grant = %b      request=%b  ", AD, iframe,CBE,iready,tready, devsel , rw ,grant , request  );
+$monitor ($time,"\nAD = %b      iframe = %b     \n                   CBE = %b    iready = %b     tready = %b     devsel = %b    rw = %b \n                           grant = %b      request=%b  ", AD, iframe,CBE,iready,tready, devsel , rw ,grant , request  );
 //AD, iframe,CBE,iready,tready, devsel , rw ,grant , request
 //test write
 
-$monitor($time,"\ngrants:::::%b         requests::::::%b",grant,request);
+//$monitor($time,"\ngrants:::::%b         requests::::::%b",grant,request);
 
 #2
 data=32'b01110110011001110111011001100111;
@@ -360,7 +361,7 @@ rw=0;force_req=1;contactAddress=20;BE1=4'b1000;BE2=4'b0000;
 data=32'b01110110011001110111011001100000;
 rw=1;force_req=0;contactAddress=20;BE1=4'b1000;BE2=4'b0000;
 //AD<=32'b00000000000000000000000000010100;
-/*
+
 #2
 data=32'b01110110011001110111011001111111;
 rw=1;force_req=2;contactAddress=20;BE1=4'b1000;BE2=4'b0001;
@@ -400,7 +401,7 @@ rw<=1;force_req=3;contactAddress=20;BE1=4'b1000;BE2=4'b0000;
 data= 32'b11111111111111110000000000000000;
 rw<=1;force_req=0;contactAddress=20;BE1=4'b1000;BE2=4'b0000;
 //AD<=32'b00000000000000000000000000010100;
-*/
+
 end 
 initial 
 begin  
