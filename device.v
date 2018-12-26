@@ -7,7 +7,7 @@ module device(request, iframe, AD, CBE, iready, tready, devsel, grant, force_req
 *  force_req: input from tb to make the device send request to the arbiter and take over the bus [Active high]
 *  rw: input to decide reading or writing: specified in the master mode, W: 1, R: 0.
 *  contactAddress: input to specify the target device address, only for master mode.
-*  data: data to be sent: only for master mode.
+*  data: data to be sent: master write or read from target.
 *  BE: Byte enable bits input: only for master mode [used to specify which bytes to be read by the target].
 *  clk: reading data from the bus with posedge clk, writing data to the bus with negede clk [toggling every 1 time unit].
 */ 
@@ -72,6 +72,7 @@ begin
                      #1 
                 // start taking over the bus as initiator in write mode 
                 iframe_io <= 1'b1; AD_io <= 1'b1; CBE_io <= 1'b1; iready_io <= 1'b1; // make them output
+                tready_io <= 1'b0; devsel_io <= 1'b0; // input
                 iframe_reg <= 1'b0; // activate it, indicate to take over the bus
                 AD_reg <= contactAddress; // put the address of the target device on the AD lines.
                 CBE_reg <= 4'b1000; // means write
@@ -95,9 +96,11 @@ begin
                 begin
                     #1
                     iframe_io <= 1'b1; AD_io <= 1'b1; CBE_io <= 1'b1; iready_io <= 1'b1; // make them output
-                    iframe_reg <= 1'b0; // activate it, indicate to take over the bus
+                    tready_io <= 1'b0; devsel_io <= 1'b0; // input
+
+                iframe_reg <= 1'b0; // activate it, indicate to take over the bus
                 AD_reg <= contactAddress; // put the address of the target device on the AD lines.
-                CBE_reg <= 4'b0000; // means write
+                CBE_reg <= 4'b0000; // means read
                 #1
                 iready_reg <= 0; // at this point target is ready to transfer data over the data lines.
                 memory_counter <= 0;
@@ -110,14 +113,48 @@ begin
                 memory_counter <= memory_counter + 1; // increment counter
                 if (memory_counter == 9) memory_counter <= 0;
                 end // end of master read data receiving
-
+                /*
+                * to be added: 
+                * cancel or pause transaction if force request = 0
+                */
 
             end // end of master read mode.
 
+    else if (!force_req) // not initiator 
+        request <= 1'b1; // send cancel request to Arbiter.
+        iframe_io <= 1'b0; AD_io <= 1'b0; CBE_io <= 1'b0; iready_io <= 1'b0; // make them input.
+         tready_io <= 1'b1; devsel_io <= 1'b1; // output.
+        if (!iframe) // some device has taken over the bus
+        begin
+            if (AD == dev_address)
+            begin
+                memory_counter <= 0;
+                if (CBE == 4'b1000) // write mood, receive data and store it.
+                begin
+                    #1
+                    tready_reg <= 1'b0;
+                    devsel_reg <= 1'b0;
+                    data_buffer <= AD; // taking data from the bus, and storing it in internal memory register.
+                    memory[memory_counter] <= data_buffer;
+                    memory_counter <= memory_counter + 1; // increment counter
+                    if (memory_counter == 9) memory_counter <= 0; // reset counter.   
+                end // end of target write mood.
 
-                
+                else if (CBE == 4'b0000) // read mood, send data till iready or iframe are deactivated.
+                begin // this section needs to be examined carefully
+                    #1
+                    if (tready && devsel)
+                    begin
+                    tready_reg <= 1'b0;
+                    devsel_reg <= 1'b0;
+                    AD_io <= 1'b1; // output to write on it.
+                    end  
+                    AD_reg <= data;
 
+                end // end of target read mood
 
+            end // target mood end
+        end // end of iframe if checking
             
 
         end // end of initiator mood if 
