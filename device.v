@@ -1,5 +1,5 @@
 /* file contains device module */
-
+/*COMMENTS ON LINES 21,23,84, 115-116 ,132-135 , 137 , 164*/
 module device(request, iframe, AD, CBE, iready, tready, devsel, grant, force_req, rw, contactAddress, device_address, data, BE,  clk);
 
 /* request: output send to Arbiter to request the Bus [Active low]. 
@@ -18,10 +18,11 @@ input clk, grant, force_req, rw;
 input [31: 0] contactAddress;
 input [31: 0] data;
 input [31: 0] device_address;
-input [3: 0] BE;
+input [3: 0] BE;                                                ///SHOULD BECOME OF TYPE INOUT ? // YOU MISMIXED IT WITH CBE , RIGHT ?
 output reg request;
 inout [31: 0] AD;
-inout iframe, CBE, iready, tready, devsel;
+inout iframe, iready, tready, devsel;                        
+inout [3: 0] CBE;
 
 /************** Internal Wires - registers ***********************/
 
@@ -37,7 +38,7 @@ reg [31: 0] data_buffer;
 
 /** GUIDELINES - CONTROL SIGNALS ***** 
 * Control signal consists of 4 bits, The MSB indicates the read/write operation, W = 1, R = 0 
-* The 3 other bits, the LSBs, indicate number of word you wanna write or read in current transaction.
+* The 3 other bits, the LSBs, indicate number of word you wanna write or read in current transaction.       //HOW DID YOU GET THIS PIECE OF INFO ?
 * That means you can read or write up to 8 words in a single transaction.
 */
 
@@ -63,24 +64,25 @@ end
 always @ (posedge clk)
 begin
     if (force_req) // inititor mode
-        #1
         request <= 0; // send request to Arbiter
         if (!grant) // granted, start using bus as initiator
         begin
             if (rw) // write operation
             begin
-               if ((tready && devsel) && iready == 1'b1) // at the beginning of a transaction and need to communicate with a target device first.
+               if ((tready && devsel) && iready == 1'b1) // at the beginning of a transaction and need to communicate with a target device first.  (target & initiator not ready)
                begin
                      #1 
                 // start taking over the bus as initiator in write mode 
-                iframe_io <= 1'b1; AD_io <= 1'b1; CBE_io <= 1'b1; iready_io <= 1'b1; // make them output
-                tready_io <= 1'b0; devsel_io <= 1'b0; // input
+                iframe_io <= 1'b1; AD_io <= 1'b1; CBE_io <= 1'b1; iready_io <= 1'b1; // make them output    , this specific device becomes initiator
+                tready_io <= 1'b0; devsel_io <= 1'b0; // input  (not this device that sets tready & devSel)
                 iframe_reg <= 1'b0; // activate it, indicate to take over the bus
                 AD_reg <= contactAddress; // put the address of the target device on the AD lines.
                 CBE_reg <= 4'b1000; // means write
-                #1
+                #1              //CLOCK EDGE RISES
                 iready_reg <= 0; // at this point target is ready to transfer data over the data lines.
-                AD_reg <= data;
+                
+                // THIS WILL BE ON THE RISING EDGE OF A NEW CLOCK CYCLE , SO SHOULDN'T WE REMOVE THIS PART ? IT WILL BE HANDELED IN THE NEXT ELSE IF CASE
+                AD_reg <= data;                                 
                 CBE_reg <= BE;
                end
             else if(!tready && !devsel) // this condition means: initiator contacted target device by putting its address
@@ -100,19 +102,20 @@ begin
                     iframe_io <= 1'b1; AD_io <= 1'b1; CBE_io <= 1'b1; iready_io <= 1'b1; // make them output
                     tready_io <= 1'b0; devsel_io <= 1'b0; // input
 
-                iframe_reg <= 1'b0; // activate it, indicate to take over the bus
-                AD_reg <= contactAddress; // put the address of the target device on the AD lines.
-                CBE_reg <= 4'b0000; // means read
-                #1
-                iready_reg <= 0; // at this point target is ready to transfer data over the data lines.
-                memory_counter <= 0;
+                    iframe_reg <= 1'b0; // activate it, indicate to take over the bus
+                    AD_reg <= contactAddress; // put the address of the target device on the AD lines.
+                    CBE_reg <= 4'b0000; // means read
+                    #1
+                    iready_reg <= 0; // at this point target is ready to transfer data over the data lines.
+                    //memory_counter <= 0;
                 end // end of master read device selecting phase
                 else if ((!tready && !devsel) && iready == 1'b0) // target device responded, and we are ready 
                 begin 
-                AD_io <= 1'b0; // make it input to read from AD bus
-                data_buffer <= AD; // taking data from the bus, and storing it in internal memory register.
-                memory[memory_counter] <= data_buffer;
-                memory_counter <= memory_counter + 1; // increment counter
+                    AD_io <= 1'b0; // make it input to read from AD bus
+                    data_buffer <= AD; // taking data from the bus, and storing it in internal memory register.         //WHY INCREMENTAL MEMORY STORAGING , 
+                    //BUFFER IS WHAT SHOULD WORK INCREMENTALLY , AND MEMORY SHALL BE ADDRESSED BY SPECIFYING ITS WORD TO ADDRESS;
+                    memory[memory_counter] <= data_buffer;
+                    memory_counter <= memory_counter + 1; // increment counter
                 if (memory_counter == 9) memory_counter <= 0;
                 end // end of master read data receiving
                 /*
@@ -125,12 +128,14 @@ begin
     else if (!force_req) // not initiator 
         request <= 1'b1; // send cancel request to Arbiter.
         iframe_io <= 1'b0; AD_io <= 1'b0; CBE_io <= 1'b0; iready_io <= 1'b0; // make them input.
-         tready_io <= 1'b1; devsel_io <= 1'b1; // output.
+        tready_io <= 1'b1; devsel_io <= 1'b1; // make them input
+       
         if (!iframe) // some device has taken over the bus
         begin
             if (AD == dev_address)
             begin
-                memory_counter <= 0;
+                tready_io <= 1'b1; devsel_io <= 1'b1; // output.     
+              //  memory_counter <= 0;
                 if (CBE == 4'b1000) // write mood, receive data and store it.
                 begin
                     #1
@@ -144,13 +149,16 @@ begin
 
                 else if (CBE == 4'b0000) // read mood, send data till iready or iframe are deactivated.
                 begin // this section needs to be examined carefully
-                    #1
+                    #1                                                          //WHY DELAY ??
                     if (tready && devsel)
                     begin
                     tready_reg <= 1'b0;
                     devsel_reg <= 1'b0;
                     AD_io <= 1'b1; // output to write on it.
                     end  
+                    /*
+                    FLOW OF DATA HERE SHALL BE FROM TARGET TO INITIATOR , SO DATA TO BE PUT ON AD_reg SHALL BE MEMORY[i] , WHERE i IS SPECIFIED INITIALLY ON THE 'AD'
+                    */
                     AD_reg <= data;
 
                 end // end of target read mood
@@ -166,7 +174,6 @@ end // end of always block
 endmodule
 
 /******** TB ***********************/ 
-
 
 /*
 
