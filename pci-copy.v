@@ -56,22 +56,22 @@ assign CBE = CBE_io? CBE_reg: 4'bzzzz;
 //assign data_buffer = AD;
 
 initial begin
-iframe_io=1; AD_io=1; CBE_io=1; iready_io=1; tready_io=1; devsel_io=1;
+iframe_io=0; AD_io=0; CBE_io=0; iready_io=0; tready_io=0; devsel_io=0;
 iframe_reg=1; iready_reg=1; tready_reg=1; devsel_reg=1;
 AD_reg=0;
 CBE_reg=0;
-memory [0]=0;
-memory [1]=0;
-memory [2]=0;
-memory [3]=0;
-memory [4]=0;
-memory [5]=0;
-memory [6]=0;
-memory [7]=0;
-memory [8]=0;
-memory [9]=0; 
+memory [0]=1;
+memory [1]=1;
+memory [2]=1;
+memory [3]=1;
+memory [4]=1;
+memory [5]=1;
+memory [6]=1;
+memory [7]=1;
+memory [8]=1;
+memory [9]=1; 
 memory_counter=0;
-data_buffer=0;
+data_buffer=3;
 end
 
 
@@ -119,12 +119,12 @@ begin
             end // end of initiator mode -- write 
                 /********** End of Master write -> except for some corner cases [if target is not ready case, and finish data transfer case] ****************************************/
         
-            else if (BE==4'b0000) // master read
+            else if (CBE==4'b0000) // master read
             begin
 
 
 
-                $display("\n IN INITIATOR READ\ndevice with add::%d    ,BE is::%b      AD_io:::%d ", device_address , BE , AD_io);
+          //      $display("\n IN INITIATOR READ\ndevice with add::%d    ,BE is::%b      AD_io:::%d ", device_address , BE , AD_io);
                 if (BE!=CBE_reg)begin               //this happens for the first and last BE==0000 times in a transaction (start and end of transaction , we just want the start)
                     
                     iframe_io <= 1'b1; AD_io <= 1'b1; CBE_io <= 1'b1; iready_io <= 1'b1; // make them output
@@ -179,28 +179,32 @@ begin
        
         if (!iframe) // some device has taken over the bus
         begin
-            $display("\nAD::%b      dev_address:::%b",AD,dev_address);                                              //
+            //$display("\nAD::%b      dev_address:::%b",AD,dev_address);                                              //
             if (AD == dev_address)
             begin
-            $display("target identified");                                              //
+            //$display("target identified");                                              //
                 tready_io <= 1'b1; devsel_io <= 1'b1; // output.     
               //  memory_counter <= 0;
-                if (BE == 4'b1000) // write mood, receive data and store it.
+                if (CBE == 4'b1000) // write mood, receive data and store it.
                 begin
   //              $display("\n IN TARGET WRITE\ndevice with add::%d    ,BE is::%b      AD_io:::%d ", device_address , BE , AD_io);
-                    //#1
+                    #1
                     tready_reg <= 1'b0;
                     devsel_reg <= 1'b0;
                     data_buffer <= AD; // taking data from the bus, and storing it in internal memory register.
                     memory[memory_counter] <= data_buffer;
-                     //$display("memory = %b    memory counter = %d\n", memory[memory_counter], memory_counter);
-
-                    memory_counter <= memory_counter + 1; // increment counter
+/*                    $display("\nDevice with Address::",device_address);
+                    $display("memory counter = %d\ndataBuffer::%b",memory_counter,data_buffer);
+                    $display("\nmemory0:::%b\nmemory1:::%b\nmemory2:::%b\nmemory3:::%b\nmemory4:::%b\nmemory5:::%b\nmemory6:::%b\nmemory7:::%b\nmemory8:::%b\nmemory9:::%b",
+                    memory[0],memory[1],memory[2],memory[3],memory[4],memory[5],memory[6],memory[7],memory[8],memory[9]
+                    );
+*/                    memory_counter <= memory_counter + 1; // increment counter
+  
                     if (memory_counter == 9) memory_counter <= 0; // reset counter.   
                 end // end of target write mood.                
-                else if (BE == 4'b0000) // read mood, send data till iready or iframe are deactivated.
+                else if (CBE == 4'b0000) // read mood, send data till iready or iframe are deactivated.
                 begin // this section needs to be examined carefully
-                    $display("\n IN TARGET READ\ndevice with add::%d    ,BE is::%b      AD_io:::%d ", device_address , BE , AD_io);
+              //      $display("\n IN TARGET READ\ndevice with add::%d    ,BE is::%b      AD_io:::%d ", device_address , BE , AD_io);
                     tready_io <= 1'b1; devsel_io <= 1'b1;
                     if (tready && devsel)
                     begin
@@ -356,18 +360,18 @@ reg  [4:0] force_req;
 wire [4:0] request , grant;
 wire [3:0] CBE;
 reg [31: 0] contactAddress;
-reg [31: 0] data1,data2;
+reg [31: 0] data1,data2,data3;
 reg [3: 0] BE2,BE3,BE1,BE4,BE5;
 wire [31: 0] AD;
 wire  iframe, iready, tready, devsel;
+integer f;
 
-
-ARBITER arbiter (grant[4:0],{3'b111,request[1:0]},iframe,iready,clk);
+ARBITER arbiter (grant[4:0],{2'b11,request[2:0]},iframe,iready,clk);
 //ARBITER arbiter (grant[4:0],request[4:0],iframe,iready,clk);
 
-device  mydevice1       (request[0], iframe, AD, CBE, iready, tready, devsel, grant[0], force_req[0] , !rw, contactAddress, 20 , data1, BE1,  clk);
-device  thirdDivision   (request[1], iframe, AD, CBE, iready, tready, devsel, grant[1], force_req[1] , rw , contactAddress, 10 , data2, BE1,  clk);
-//device  dev3            (request[2], iframe, AD, CBE, iready, tready, devsel, grant[2], force_req[2] , rw, contactAddress, 30 , data, BE3,  clk);
+device  C        (request[0], iframe, AD, CBE, iready, tready, devsel, grant[0], force_req[0] , rw , contactAddress, 30 , data1, BE1,  clk);
+device  B        (request[1], iframe, AD, CBE, iready, tready, devsel, grant[1], force_req[1] , rw , contactAddress, 20 , data2, BE1,  clk);
+device  A        (request[2], iframe, AD, CBE, iready, tready, devsel, grant[2], force_req[2] , rw , contactAddress, 10 , data3, BE1,  clk);
 //device  dev4            (request[3], iframe, AD, CBE, iready, tready, devsel, grant[3], force_req[3] , rw, contactAddress, 40 , data, BE4,  clk);
 //device  dev5            (request[4], iframe, AD, CBE, iready, tready, devsel, grant[4], force_req[4] , rw, contactAddress, 50 , data, BE5,  clk);
 
@@ -375,131 +379,406 @@ device  thirdDivision   (request[1], iframe, AD, CBE, iready, tready, devsel, gr
 
 initial 
 begin
-rw=1;force_req=1;contactAddress=10;BE1=4'b1000;BE2=4'b0000;
+
+f = $fopen("./GUI App/sc1.txt","w");
 //AD<=32'b00000000000000000000000000010100; 
-$monitor ($time,"\nAD = %b      iframe = %b     CBE = %b    iready = %b   tready = %b   devsel = %b   grant = %b    request=%b", AD, iframe,CBE,iready,tready, devsel , grant , request  );
+//$monitor ($time,"\nAD = %b      iframe = %b     CBE = %b    iready = %b   tready = %b   devsel = %b   grant = %b    request=%b", AD, iframe,CBE,iready,tready, devsel , grant , request  );
 //AD, iframe,CBE,iready,tready, devsel , rw ,grant , request
 //test write
+rw=1;force_req=4;contactAddress=20;BE1=4'b1000;BE2=4'b0000;BE3=4'b0000;
+$fwrite(f,"%b,%b,%b,%b\n",iframe,iready,tready, devsel);
+data1=32'd255;
+data2=32'b11100000000000000000000000000000;
+data3=128;
+rw=1;force_req=4;contactAddress=20;BE1=4'b1000;BE2=4'b0000;BE3=4'b0000;
+//AD<=32'b00000000000000000000000000010100;
 
+#2
+
+data1=32'd1024;data2=32'b11100000000000000000000000000000;
+data3=128;
+rw=1;force_req=4;contactAddress=20;BE1=4'b1000;BE2=4'b0000;BE3=4'b0000;
+//AD<=32'b00000000000000000000000000010100;
+$fwrite(f,"%b,%b,%b,%b\n",iframe,iready,tready, devsel);
+
+#2
+data1=32'd254;
+data2=32'b11100000000000000000000000000000;
+data3=128;
+rw=1;force_req=4;contactAddress=20;BE1=4'b1000;BE2=4'b0000;BE3=4'b0000;
+$fwrite(f,"%b,%b,%b,%b\n",iframe,iready,tready, devsel);
+
+//AD<=32'b00000000000000000000000000010100;
+
+
+#2
+data1=32'd1025;data2=32'b11100000000000000000000000000000;
+data3=128;
+rw=1;force_req=4;contactAddress=20;BE1=4'b1000;BE2=4'b0000;BE3=4'b0000;
+$fwrite(f,"%b,%b,%b,%b\n",iframe,iready,tready, devsel);
+
+//AD<=32'b00000000000000000000000000010100;
+
+#2
+data1=32'd1025;data2=32'b11100000000000000000000000000000;
+data3=128;
+rw=1;force_req=4;contactAddress=20;BE1=4'b1000;BE2=4'b0000;BE3=4'b0000;
+//AD<=32'b00000000000000000000000000010100;
+$fwrite(f,"%b,%b,%b,%b\n",iframe,iready,tready, devsel);
+
+#2
+data1=32'd1025;data2=32'b11100000000000000000000000000000;
+data3=128;
+rw=1;force_req=4;contactAddress=20;BE1=4'b1000;BE2=4'b0000;BE3=4'b0000;
+//AD<=32'b00000000000000000000000000010100;
+$fwrite(f,"%b,%b,%b,%b\n",iframe,iready,tready, devsel);
+
+
+
+#2
+data1=32'd1025;data2=32'b11100000000000000000000000000000;
+data3=128;
+rw=1;force_req=2;contactAddress=10;BE1=4'b1000;BE2=4'b0000;BE3=4'b0000;
+//AD<=32'b00000000000000000000000000010100;
+$fwrite(f,"%b,%b,%b,%b\n",iframe,iready,tready, devsel);
+
+
+#2
+data1=32'd1025;data2=32'b11100000000000000000000000000000;
+data3=128;
+rw=1;force_req=2;contactAddress=10;BE1=4'b1000;BE2=4'b0000;BE3=4'b0000;
+//AD<=32'b00000000000000000000000000010100;
+$fwrite(f,"%b,%b,%b,%b\n",iframe,iready,tready, devsel);
+
+#2
+data1=32'd1025;data2=32'b11100000000000000000000000000000;
+data3=128;
+rw=1;force_req=2;contactAddress=10;BE1=4'b1000;BE2=4'b0000;BE3=4'b0000;
+//AD<=32'b00000000000000000000000000010100;
+$fwrite(f,"%b,%b,%b,%b\n",iframe,iready,tready, devsel);
+
+#2
+data1=32'd1025;data2=32'b11100000000000000000000000000000;
+data3=128;
+rw=1;force_req=2;contactAddress=10;BE1=4'b1000;BE2=4'b0000;BE3=4'b0000;
+//AD<=32'b00000000000000000000000000010100;
+$fwrite(f,"%b,%b,%b,%b\n",iframe,iready,tready, devsel);
+
+
+#2
+data1=32'd1025;data2=32'b11100000000000000000000000000000;
+data3=128;
+rw=1;force_req=2;contactAddress=10;BE1=4'b1000;BE2=4'b0000;BE3=4'b0000;
+//AD<=32'b00000000000000000000000000010100;
+$fwrite(f,"%b,%b,%b,%b\n",iframe,iready,tready, devsel);
+
+
+
+#2
+data1=32'd1025;data2=32'b11100000000000000000000000000000;
+data3=128;
+rw=1;force_req=5;contactAddress=30;BE1=4'b1000;BE2=4'b0000;BE3=4'b0000;
+//AD<=32'b00000000000000000000000000010100;
+$fwrite(f,"%b,%b,%b,%b\n",iframe,iready,tready, devsel);
+
+#2
+data1=32'd1025;data2=32'b11100000000000000000000000000000;
+data3=128;
+rw=1;force_req=5;contactAddress=30;BE1=4'b1000;BE2=4'b0000;BE3=4'b0000;
+//AD<=32'b00000000000000000000000000010100;
+$fwrite(f,"%b,%b,%b,%b\n",iframe,iready,tready, devsel);
+
+#2
+data1=32'd1025;data2=32'b11100000000000000000000000000000;
+data3=128;
+rw=1;force_req=5;contactAddress=30;BE1=4'b1000;BE2=4'b0000;BE3=4'b0000;
+//AD<=32'b00000000000000000000000000010100;
+$fwrite(f,"%b,%b,%b,%b\n",iframe,iready,tready, devsel);
+
+#2
+data1=32'd1025;data2=32'b11100000000000000000000000000000;
+data3=128;
+rw=1;force_req=5;contactAddress=30;BE1=4'b1000;BE2=4'b0000;BE3=4'b0000;
+//AD<=32'b00000000000000000000000000010100;
+$fwrite(f,"%b,%b,%b,%b\n",iframe,iready,tready, devsel);
+
+#2
+data1=32'd1025;data2=32'b11100000000000000000000000000000;
+data3=128;
+rw=1;force_req=5;contactAddress=30;BE1=4'b1000;BE2=4'b0000;BE3=4'b0000;
+//AD<=32'b00000000000000000000000000010100;
+$fwrite(f,"%b,%b,%b,%b\n",iframe,iready,tready, devsel);
+
+#2
+data1=32'd1025;data2=32'b11100000000000000000000000000000;
+data3=128;
+rw=1;force_req=1;contactAddress=10;BE1=4'b1000;BE2=4'b0000;BE3=4'b0000;
+//AD<=32'b00000000000000000000000000010100;
+$fwrite(f,"%b,%b,%b,%b\n",iframe,iready,tready, devsel);
+
+
+#2
+data1=32'd1025;data2=32'b11100000000000000000000000000000;
+data3=128;
+rw=1;force_req=1;contactAddress=10;BE1=4'b1000;BE2=4'b0000;BE3=4'b0000;
+//AD<=32'b00000000000000000000000000010100;
+$fwrite(f,"%b,%b,%b,%b\n",iframe,iready,tready, devsel);
+
+#2
+data1=32'd1025;data2=32'b11100000000000000000000000000000;
+data3=128;
+rw=1;force_req=1;contactAddress=10;BE1=4'b1000;BE2=4'b0000;BE3=4'b0000;
+//AD<=32'b00000000000000000000000000010100;
+$fwrite(f,"%b,%b,%b,%b\n",iframe,iready,tready, devsel);
+
+#2
+data1=32'd1025;data2=32'b11100000000000000000000000000000;
+data3=128;
+rw=1;force_req=1;contactAddress=10;BE1=4'b1000;BE2=4'b0000;BE3=4'b0000;
+//AD<=32'b00000000000000000000000000010100;
+$fwrite(f,"%b,%b,%b,%b\n",iframe,iready,tready, devsel);
+
+#2
+data1=32'd1025;data2=32'b11100000000000000000000000000000;
+data3=128;
+rw=1;force_req=1;contactAddress=10;BE1=4'b1000;BE2=4'b0000;BE3=4'b0000;
+//AD<=32'b00000000000000000000000000010100;
+////////////////////////////////////////////////////////////////////////////////////////DEVICE C SENT TO A , NOW WANTS TO SEND TO B
+$fwrite(f,"%b,%b,%b,%b\n",iframe,iready,tready, devsel);
+
+#2
+data1=32'd1025;data2=32'b11100000000000000000000000000000;
+data3=128;
+rw=1;force_req=0;contactAddress=20;BE1=4'b1000;BE2=4'b0000;BE3=4'b0000;
+$fwrite(f,"%b,%b,%b,%b\n",iframe,iready,tready, devsel);
+
+#2
+data1=32'd1025;data2=32'b11100000000000000000000000000000;
+data3=128;
+rw=1;force_req=1;contactAddress=20;BE1=4'b1000;BE2=4'b0000;BE3=4'b0000;
+$fwrite(f,"%b,%b,%b,%b\n",iframe,iready,tready, devsel);
+
+#2
+data1=32'd1025;data2=32'b11100000000000000000000000000000;
+data3=128;
+rw=1;force_req=1;contactAddress=20;BE1=4'b1000;BE2=4'b0000;BE3=4'b0000;
+$fwrite(f,"%b,%b,%b,%b\n",iframe,iready,tready, devsel);
+
+#2
+data1=32'd1025;data2=32'b11100000000000000000000000000000;
+data3=128;
+rw=1;force_req=1;contactAddress=20;BE1=4'b1000;BE2=4'b0000;BE3=4'b0000;
+$fwrite(f,"%b,%b,%b,%b\n",iframe,iready,tready, devsel);
+
+////////////////////////////////////////////////////////////////////////////////////////END OF C SENDING TO A
+#2
+data1=32'd253;
+data2=32'b11100000000000000000000000000000;
+data3=128;
+rw=1;force_req=0;contactAddress=10;BE1=4'b1000;BE2=4'b0000;BE3=4'b0000;
+//AD<=32'b00000000000000000000000000010100;
+$fwrite(f,"%b,%b,%b,%b\n",iframe,iready,tready, devsel);
+
+/*
+rw=1;force_req=1;contactAddress=10;BE1=4'b1000;BE2=4'b0000;BE3=4'b0000;
 //$monitor($time,"\ngrants:::::%b         requests::::::%b",grant,request);
 #2
 data1=32'd255;
 data2=32'b11100000000000000000000000000000;
-rw=1;force_req= 1;contactAddress=10;BE1=4'b1000;BE2=4'b0000;
+data3=128;
+rw=1;force_req= 1;contactAddress=10;BE1=4'b1000;BE2=4'b0000;BE3=4'b0000;
 //AD<=32'b00000000000000000000000000010100;
 
 #2
-data1=32'd1024;data2=32'b11100000000000000000000000000000;;
-rw=1;force_req=1;contactAddress=10;BE1=4'b1000;BE2=4'b0000;
+data1=32'd1024;data2=32'b11100000000000000000000000000000;
+data3=128;
+rw=1;force_req=1;contactAddress=10;BE1=4'b1000;BE2=4'b0000;BE3=4'b0000;
 //AD<=32'b00000000000000000000000000010100;
 
 #2
 data1=32'd254;
 data2=32'b11100000000000000000000000000000;
-rw=1;force_req= 1;contactAddress=10;BE1=4'b1000;BE2=4'b0000;
+data3=128;
+rw=1;force_req= 1;contactAddress=10;BE1=4'b1000;BE2=4'b0000;BE3=4'b0000;
 //AD<=32'b00000000000000000000000000010100;
 
 
 #2
-data1=32'd1025;data2=32'b11100000000000000000000000000000;;
-rw=1;force_req=1;contactAddress=10;BE1=4'b1000;BE2=4'b0000;
+data1=32'd1025;data2=32'b11100000000000000000000000000000;
+data3=128;
+rw=1;force_req=1;contactAddress=10;BE1=4'b1000;BE2=4'b0000;BE3=4'b0000;
 //AD<=32'b00000000000000000000000000010100;
 
 #2
 data1=32'd253;
 data2=32'b11100000000000000000000000000000;
-rw=1;force_req=1;contactAddress=10;BE1=4'b1000;BE2=4'b0000;
+data3=128;
+rw=1;force_req=1;contactAddress=10;BE1=4'b1000;BE2=4'b0000;BE3=4'b0000;
 //AD<=32'b00000000000000000000000000010100;
 
 
 #2
-data1=32'd1026;data2=32'b11100000000000000000000000000000;;
-rw=1;force_req=2;contactAddress=10;BE1=4'b1000;BE2=4'b0000;
-//AD<=32'b00000000000000000000000000010100;
-
-#2
-data1=32'd252;
-data2=32'b11100000000000000000000000000000;
-rw=1;force_req=2;contactAddress=20;BE1=4'b1000;BE2=4'b0000;
-//AD<=32'b00000000000000000000000000010100;
-
-
-#2
-data1=32'd1024;data2=32'b11100000000000000000000000000000;;
-rw=1;force_req=2;contactAddress=20;BE1=4'b1000;BE2=4'b0000;
-//AD<=32'b00000000000000000000000000010100;
-
-
-#2
-data1=32'd1024;data2=32'b11100000000000000000000000000000;;
-rw=1;force_req=3;contactAddress=20;BE1=4'b1000;BE2=4'b0000;
+data1=32'd1026;data2=32'b11100000000000000000000000000000;
+data3=128;
+rw=1;force_req=2;contactAddress=10;BE1=4'b1000;BE2=4'b0000;BE3=4'b0000;
 //AD<=32'b00000000000000000000000000010100;
 
 #2
 data1=32'd252;
 data2=32'b11100000000000000000000000000000;
-rw=1;force_req=2;contactAddress=20;BE1=4'b1000;BE2=4'b0000;
+data3=128;
+rw=1;force_req=2;contactAddress=20;BE1=4'b1000;BE2=4'b0000;BE3=4'b0000;
+//AD<=32'b00000000000000000000000000010100;
+
+
+#2
+data1=32'd1024;data2=32'b11100000000000000000000000000000;
+data3=128;
+rw=1;force_req=2;contactAddress=20;BE1=4'b1000;BE2=4'b0000;BE3=4'b0000;
+//AD<=32'b00000000000000000000000000010100;
+
+
+#2
+data1=32'd1024;data2=32'b11100000000000000000000000000000;
+data3=128;
+rw=1;force_req=3;contactAddress=20;BE1=4'b1000;BE2=4'b0000;BE3=4'b0000;
 //AD<=32'b00000000000000000000000000010100;
 
 #2
-data1=32'd1024;data2=32'b11100000000000000000000000000000;;
-rw=1;force_req=2;contactAddress=20;BE1=4'b1000;BE2=4'b0000;
+data1=32'd252;
+data2=32'b11100000000000000000000000000000;
+data3=128;
+rw=1;force_req=2;contactAddress=20;BE1=4'b1000;BE2=4'b0000;BE3=4'b0000;
 //AD<=32'b00000000000000000000000000010100;
 
 #2
-data1=32'd1024;data2=32'b11100000000000000000000000000000;;
-rw=1;force_req=0;contactAddress=20;BE1=4'b1000;BE2=4'b0000;
+data1=32'd1024;data2=32'b11100000000000000000000000000000;
+data3=128;
+rw=1;force_req=2;contactAddress=20;BE1=4'b1000;BE2=4'b0000;BE3=4'b0000;
+//AD<=32'b00000000000000000000000000010100;
+
+#2
+data1=32'd1024;data2=32'b11100000000000000000000000000000;
+data3=128;
+rw=1;force_req=0;contactAddress=20;BE1=4'b1000;BE2=4'b0000;BE3=4'b0000;
+//AD<=32'b00000000000000000000000000010100;
+*/
+/********************************************************************DEV3 REQUESTS******************************************************************/
+
+/*
+#2
+data1=32'd253;
+data2=32'b11100000000000000000000000000000;
+data3=127;
+rw=1;force_req=1;contactAddress=10;BE1=4'b1000;BE2=4'b0000;BE3=4'b0000;
+//AD<=32'b00000000000000000000000000010100;
+
+
+#2
+data1=32'd1026;data2=32'b11100000000000000000000000000000;
+data3=127;
+rw=1;force_req=4;contactAddress=10;BE1=4'b1000;BE2=4'b0000;BE3=4'b0000;
+//AD<=32'b00000000000000000000000000010100;
+
+#2
+data1=32'd252;
+data2=32'b11100000000000000000000000000000;
+data3=127;
+rw=1;force_req=4;contactAddress=20;BE1=4'b1000;BE2=4'b0000;BE3=4'b0000;
+//AD<=32'b00000000000000000000000000010100;
+
+
+#2
+data1=32'd1024;data2=32'b11100000000000000000000000000000;
+data3=127;
+rw=1;force_req=4;contactAddress=20;BE1=4'b1000;BE2=4'b0000;BE3=4'b0000;
+//AD<=32'b00000000000000000000000000010100;
+
+
+#2
+data1=32'd1024;data2=32'b11100000000000000000000000000000;
+data3=127;
+rw=1;force_req=4;contactAddress=20;BE1=4'b1000;BE2=4'b0000;BE3=4'b0000;
+//AD<=32'b00000000000000000000000000010100;
+
+#2
+data1=32'd252;
+data2=32'b11100000000000000000000000000000;
+data3=127;
+rw=1;force_req=4;contactAddress=20;BE1=4'b1000;BE2=4'b0000;BE3=4'b0000;
+//AD<=32'b00000000000000000000000000010100;
+
+#2
+data1=32'd1024;data2=32'b11100000000000000000000000000000;
+data3=127;
+rw=1;force_req=4;contactAddress=20;BE1=4'b1000;BE2=4'b0000;BE3=4'b0000;
+//AD<=32'b00000000000000000000000000010100;
+
+#2
+data1=32'd1024;data2=32'b11100000000000000000000000000000;
+data3=127;
+rw=1;force_req=0;contactAddress=20;BE1=4'b1000;BE2=4'b0000;BE3=4'b0000;
+
+*/
 //AD<=32'b00000000000000000000000000010100;
 /****************************************************************READ******************************************************************************/
-
+/*
 
 #2
 data1=32'd253;
 data2=32'b11100000000000000000000000000000;
-rw=1;force_req=1;contactAddress=10;BE1=4'b0000;BE2=4'b0000;
+data3=128;
+rw=1;force_req=1;contactAddress=10;BE1=4'b0000;BE2=4'b0000;BE3=4'b0000;
 //AD<=32'b00000000000000000000000000010100;
 
 
 #2
-data1=32'd1026;data2=32'b11100000000000000000000000000000;;
-rw=1;force_req=2;contactAddress=10;BE1=4'b0000;BE2=4'b0000;
-//AD<=32'b00000000000000000000000000010100;
-
-#2
-data1=32'd252;
-data2=32'b11100000000000000000000000000000;
-rw=1;force_req=2;contactAddress=20;BE1=4'b0000;BE2=4'b0000;
-//AD<=32'b00000000000000000000000000010100;
-
-
-#2
-data1=32'd1024;data2=32'b11100000000000000000000000000000;;
-rw=1;force_req=2;contactAddress=20;BE1=4'b0000;BE2=4'b0000;
-//AD<=32'b00000000000000000000000000010100;
-
-
-#2
-data1=32'd1024;data2=32'b11100000000000000000000000000000;;
-rw=1;force_req=3;contactAddress=20;BE1=4'b0000;BE2=4'b0000;
+data1=32'd1026;data2=32'b11100000000000000000000000000000;
+data3=128;
+rw=1;force_req=2;contactAddress=10;BE1=4'b0000;BE2=4'b0000;BE3=4'b0000;
 //AD<=32'b00000000000000000000000000010100;
 
 #2
 data1=32'd252;
 data2=32'b11100000000000000000000000000000;
-rw=1;force_req=2;contactAddress=20;BE1=4'b0000;BE2=4'b0000;
+data3=128;
+rw=1;force_req=2;contactAddress=20;BE1=4'b0000;BE2=4'b0000;BE3=4'b0000;
+//AD<=32'b00000000000000000000000000010100;
+
+
+#2
+data1=32'd1024;data2=32'b11100000000000000000000000000000;
+data3=128;
+rw=1;force_req=2;contactAddress=20;BE1=4'b0000;BE2=4'b0000;BE3=4'b0000;
+//AD<=32'b00000000000000000000000000010100;
+
+
+#2
+data1=32'd1024;data2=32'b11100000000000000000000000000000;
+data3=128;
+rw=1;force_req=3;contactAddress=20;BE1=4'b0000;BE2=4'b0000;BE3=4'b0000;
 //AD<=32'b00000000000000000000000000010100;
 
 #2
-data1=32'd1024;data2=32'b11100000000000000000000000000000;;
-rw=1;force_req=2;contactAddress=20;BE1=4'b0000;BE2=4'b0000;
+data1=32'd252;
+data2=32'b11100000000000000000000000000000;
+data3=128;
+rw=1;force_req=2;contactAddress=20;BE1=4'b0000;BE2=4'b0000;BE3=4'b0000;
 //AD<=32'b00000000000000000000000000010100;
 
 #2
-data1=32'd1024;data2=32'b11100000000000000000000000000000;;
-rw=1;force_req=0;contactAddress=20;BE1=4'b0000;BE2=4'b0000;
+data1=32'd1024;data2=32'b11100000000000000000000000000000;
+data3=128;
+rw=1;force_req=2;contactAddress=20;BE1=4'b0000;BE2=4'b0000;BE3=4'b0000;
 //AD<=32'b00000000000000000000000000010100;
 
+#2
+data1=32'd1024;data2=32'b11100000000000000000000000000000;
+data3=128;
+rw=1;force_req=0;contactAddress=20;BE1=4'b0000;BE2=4'b0000;BE3=4'b0000;
+//AD<=32'b00000000000000000000000000010100;
 
+*/
 $display("\nAD: %b",AD);
 
 
@@ -545,6 +824,7 @@ data= 32'b11111111111111110000000000000000;
 rw<=1;force_req=0;contactAddress=20;BE1=4'b1000;BE2=4'b0000;
 //AD<=32'b00000000000000000000000000010100;
 */
+  $fclose(f);  
 end 
 initial 
 begin  
@@ -559,3 +839,4 @@ end
 //device  secondeDev      (request[1], iframe, AD, CBE, iready, tready, devsel, grant[1], force_req[1] , rw, contactAddress, 32'b20 , data, BE2,  clk);
 
 endmodule
+
