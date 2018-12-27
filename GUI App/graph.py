@@ -13,7 +13,6 @@ import matplotlib.pyplot as plt
 import random
 
 
-
 class PlotCanvas(FigureCanvas):
 
     def __init__(self, parent=None, width=5, height=4, dpi=100):
@@ -26,54 +25,72 @@ class PlotCanvas(FigureCanvas):
         FigureCanvas.setSizePolicy(self, QSizePolicy.Expanding, QSizePolicy.Expanding)
         FigureCanvas.updateGeometry(self)
         self.plot()
+        self.file_data = []
+        self.iframe_bits = []
+        self.iready_bits = []
+        self.tready_bits = []
+        self.devsel_bits = []
+        self.sc1_name = './sc1.txt'
 
+        self.process_file()
 
     def plot(self):
-        '''
-        data = [random.random() for i in range(0, 10, 1)]
-        ax = self.figure.add_subplot(111)
-        for i in range(1, 5):
-            ax.plot(np.array([1, 5]) * i, label=i)
-        #ax.plot(data, 'b-')
-
-        colormap = plt.cm.gist_ncar  # nipy_spectral, Set1,Paired
-        colors = [colormap(i) for i in np.linspace(0, 1, len(ax1.lines))]
-        for i, j in enumerate(ax1.lines):
-            j.set_color(colors[i])
-
-        ax1.legend(loc=2)
-
-        '''
-
-
         bits = [0, 1, 0, 1, 0, 0, 1, 1, 1, 0, 0, 1, 0]
         data = np.repeat(bits, 2)
         t = 0.5 * np.arange(len(data))
 
-        #data = [random.random() for i in range(0, 10, 1)]
-        ax = self.figure.add_subplot(111)
-        ax1 = self.figure.add_subplot(111)
-        #for i in range(1, 10):
+        # data = [random.random() for i in range(0, 10, 1)]
+        iframe = self.figure.add_subplot(111)
+        iready = self.figure.add_subplot(111)
+        tready = self.figure.add_subplot(111)
+        devsel = self.figure.add_subplot(111)
 
-        ax.step(t, data + 2)
-        ax1.step(t, data)
+        iframe.step(t, data + 2)
+        iready.step(t, data)
+        tready.step(t, data - 2)
+        devsel.step(t, data - 4)
 
-        ax.grid(False)
-        ax.set_xlim(t[0], t[-1])
-        ax.set_ylim([0, 6])
+        iframe.grid(False)
+        iframe.set_xlim(t[0], t[-1])
+        iframe.set_ylim([0, 6])
 
-        ax1.grid(False)
-        ax1.set_xlim(t[0], t[-1])
-        ax1.set_ylim([-5, 5])
+        iready.grid(False)
+        iready.set_xlim(t[0], t[-1])
+        iready.set_ylim([-5, 5])
 
+        iframe.legend(loc=2)
+        iframe.axis('off')
 
-
-
-        ax.legend(loc=2)
-        ax.axis('off')
-
-
-        ax.set_title('PCI Simulation Wave Form')
+        iframe.set_title('PCI Simulation Wave Form')
 
         self.draw()
+
+
+    def process_file(self):
+
+        with open(self.sc1_name, 'r') as f:
+            file_data = []
+            lines = f.readlines()
+
+            lines = [line.strip() for line in lines]
+            print(lines)
+            for line in lines:
+                l = line.split(',')
+                print(l)
+                self.file_data.append(l)
+
+            print(self.file_data)
+            li = []
+            lis = []
+            for l in self.file_data:
+                for s in l:
+                    lis.append(int(s))
+                
+            for i in range(0, len(li)):
+                if (i % 4 == 0):
+                    self.iframe_bits.append(li[i])
+
+            print(self.iframe_bits)
+            print(li)
+
 

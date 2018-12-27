@@ -7,6 +7,16 @@ from os import path
 import os
 from graph import *
 
+
+import numpy as np
+
+from PyQt5.QtWidgets import QApplication, QMainWindow, QMenu, QVBoxLayout, QSizePolicy, QMessageBox, QWidget, \
+    QPushButton
+from PyQt5.QtGui import QIcon
+
+
+
+
 FORM_CLASS,_ = loadUiType(path.join(path.dirname(__file__), "main.ui"))
 
 
@@ -30,7 +40,7 @@ class MainApp(QMainWindow, FORM_CLASS):
         self.setWindowTitle("PCI Simulator")
         self.setFixedSize(900,600)
         m= PlotCanvas(self, width=5, height=4)
-        m.move(0, 0)
+        m.move(175, 5)
 
 
 
@@ -56,6 +66,13 @@ class MainApp(QMainWindow, FORM_CLASS):
     def run_code(self):
         os.system(self.compile_command)
         os.system(self.run_command)
+
+
+
+
+################################### Graph class ######################################3
+
+
 
 
 

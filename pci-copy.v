@@ -162,10 +162,7 @@ begin
                     if (memory_counter == 9)
                         memory_counter <= 0;
                 end // end of master read data receiving
-                /*
-                * to be added: 
-                * cancel or pause transaction if force request = 0
-                */
+               
             
             
             
