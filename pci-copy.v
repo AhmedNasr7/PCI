@@ -60,8 +60,6 @@ iframe_io=1; AD_io=1; CBE_io=1; iready_io=1; tready_io=1; devsel_io=1;
 iframe_reg=1; iready_reg=1; tready_reg=1; devsel_reg=1;
 AD_reg=0;
 CBE_reg=0;
-
-dev_address=0;
 memory [0]=0;
 memory [1]=0;
 memory [2]=0;
@@ -123,21 +121,37 @@ begin
         
             else if (BE==4'b0000) // master read
             begin
- //               $display("\n IN INITIATOR READ\ndevice with add::%d    ,BE is::%b      AD_io:::%d ", device_address , BE , AD_io);
-                if ((tready && devsel) && iready == 1'b1) // at the beginning of a transaction and need to communicate with a target device first.
-                begin
-                    #1
-                    iframe_io <= 1'b1; AD_io <= 1'b1; CBE_io <= 1'b1; iready_io <= 1'b1; // make them output
-                    tready_io <= 1'b0; devsel_io <= 1'b0; // input
 
+
+
+                $display("\n IN INITIATOR READ\ndevice with add::%d    ,BE is::%b      AD_io:::%d ", device_address , BE , AD_io);
+                if (BE!=CBE_reg)begin               //this happens for the first and last BE==0000 times in a transaction (start and end of transaction , we just want the start)
+                    
+                    iframe_io <= 1'b1; AD_io <= 1'b1; CBE_io <= 1'b1; iready_io <= 1'b1; // make them output
+                    tready_io <= 1'b1; devsel_io <= 1'b1; // input
+                    tready_reg<=1'b1;   devsel_reg<= 1'b1;
                     iframe_reg <= 1'b0; // activate it, indicate to take over the bus
                     AD_reg <= contactAddress; // put the address of the target device on the AD lines.
                     CBE_reg <= 4'b0000; // means read
+
+                end
+                else begin
+                    
+                    iframe_io <= 1'b1; AD_io <= 1'b1; CBE_io <= 1'b1; iready_io <= 1'b1; // make them output
+                    tready_io <= 1'b0; devsel_io <= 1'b0; // input
+                    tready_reg<=1'b1;   devsel_reg<= 1'b1;
+                end
+
+//                if ((tready && devsel) && iready == 1'b1) // at the beginning of a transaction and need to communicate with a target device first.
+//                begin
+/*                    iframe_io <= 1'b1; AD_io <= 1'b1; CBE_io <= 1'b1; iready_io <= 1'b1; // make them output
+                    tready_io <= 1'b0; devsel_io <= 1'b0; // input
+
                     
                     iready_reg <= 0; // at this point target is ready to transfer data over the data lines.
                     //memory_counter <= 0;
-                end // end of master read device selecting phase
-                else if ((!tready && !devsel) && iready == 1'b0) // target device responded, and we are ready 
+//                end // end of master read device selecting phase
+  */              /*else*/ if ((!tready && !devsel) && iready == 1'b0) // target device responded, and we are ready 
                 begin 
                     AD_io <= 1'b0; // make it input to read from AD bus
                     //$display("\nreading in initiaor , so leaving bus ZZZ");
@@ -152,6 +166,10 @@ begin
                 * to be added: 
                 * cancel or pause transaction if force request = 0
                 */
+            
+            
+            
+            
             end // end of master read mode.
         end
     end
@@ -164,8 +182,10 @@ begin
        
         if (!iframe) // some device has taken over the bus
         begin
+            $display("\nAD::%b      dev_address:::%b",AD,dev_address);                                              //
             if (AD == dev_address)
             begin
+            $display("target identified");                                              //
                 tready_io <= 1'b1; devsel_io <= 1'b1; // output.     
               //  memory_counter <= 0;
                 if (BE == 4'b1000) // write mood, receive data and store it.
@@ -183,7 +203,7 @@ begin
                 end // end of target write mood.                
                 else if (BE == 4'b0000) // read mood, send data till iready or iframe are deactivated.
                 begin // this section needs to be examined carefully
-  //                  $display("\n IN TARGET READ\ndevice with add::%d    ,BE is::%b      AD_io:::%d ", device_address , BE , AD_io);
+                    $display("\n IN TARGET READ\ndevice with add::%d    ,BE is::%b      AD_io:::%d ", device_address , BE , AD_io);
                     tready_io <= 1'b1; devsel_io <= 1'b1;
                     if (tready && devsel)
                     begin
@@ -339,7 +359,7 @@ reg  [4:0] force_req;
 wire [4:0] request , grant;
 wire [3:0] CBE;
 reg [31: 0] contactAddress;
-reg [31: 0] data;
+reg [31: 0] data1,data2;
 reg [3: 0] BE2,BE3,BE1,BE4,BE5;
 wire [31: 0] AD;
 wire  iframe, iready, tready, devsel;
@@ -348,8 +368,8 @@ wire  iframe, iready, tready, devsel;
 ARBITER arbiter (grant[4:0],{3'b111,request[1:0]},iframe,iready,clk);
 //ARBITER arbiter (grant[4:0],request[4:0],iframe,iready,clk);
 
-device  mydevice1       (request[0], iframe, AD, CBE, iready, tready, devsel, grant[0], force_req[0] , !rw, contactAddress, 20 , data, BE1,  clk);
-device  thirdDivision   (request[1], iframe, AD, CBE, iready, tready, devsel, grant[1], force_req[1] , rw, contactAddress, 10 , data, BE1,  clk);
+device  mydevice1       (request[0], iframe, AD, CBE, iready, tready, devsel, grant[0], force_req[0] , !rw, contactAddress, 20 , data1, BE1,  clk);
+device  thirdDivision   (request[1], iframe, AD, CBE, iready, tready, devsel, grant[1], force_req[1] , rw , contactAddress, 10 , data2, BE1,  clk);
 //device  dev3            (request[2], iframe, AD, CBE, iready, tready, devsel, grant[2], force_req[2] , rw, contactAddress, 30 , data, BE3,  clk);
 //device  dev4            (request[3], iframe, AD, CBE, iready, tready, devsel, grant[3], force_req[3] , rw, contactAddress, 40 , data, BE4,  clk);
 //device  dev5            (request[4], iframe, AD, CBE, iready, tready, devsel, grant[4], force_req[4] , rw, contactAddress, 50 , data, BE5,  clk);
@@ -366,73 +386,129 @@ $monitor ($time,"\nAD = %b      iframe = %b     CBE = %b    iready = %b   tready
 
 //$monitor($time,"\ngrants:::::%b         requests::::::%b",grant,request);
 #2
-data=32'd255;
+data1=32'd255;
+data2=32'b11100000000000000000000000000000;
 rw=1;force_req= 1;contactAddress=10;BE1=4'b1000;BE2=4'b0000;
 //AD<=32'b00000000000000000000000000010100;
 
 #2
-data=32'd1024;
+data1=32'd1024;data2=32'b11100000000000000000000000000000;;
 rw=1;force_req=1;contactAddress=10;BE1=4'b1000;BE2=4'b0000;
 //AD<=32'b00000000000000000000000000010100;
 
 #2
-data=32'd254;
+data1=32'd254;
+data2=32'b11100000000000000000000000000000;
 rw=1;force_req= 1;contactAddress=10;BE1=4'b1000;BE2=4'b0000;
 //AD<=32'b00000000000000000000000000010100;
 
 
 #2
-data=32'd1025;
+data1=32'd1025;data2=32'b11100000000000000000000000000000;;
 rw=1;force_req=1;contactAddress=10;BE1=4'b1000;BE2=4'b0000;
 //AD<=32'b00000000000000000000000000010100;
 
 #2
-data=32'd253;
+data1=32'd253;
+data2=32'b11100000000000000000000000000000;
 rw=1;force_req=1;contactAddress=10;BE1=4'b1000;BE2=4'b0000;
 //AD<=32'b00000000000000000000000000010100;
 
 
 #2
-data=32'd1026;
+data1=32'd1026;data2=32'b11100000000000000000000000000000;;
 rw=1;force_req=2;contactAddress=10;BE1=4'b1000;BE2=4'b0000;
 //AD<=32'b00000000000000000000000000010100;
 
 #2
-data=32'd252;
+data1=32'd252;
+data2=32'b11100000000000000000000000000000;
 rw=1;force_req=2;contactAddress=20;BE1=4'b1000;BE2=4'b0000;
 //AD<=32'b00000000000000000000000000010100;
 
 
 #2
-data=32'd1024;
+data1=32'd1024;data2=32'b11100000000000000000000000000000;;
 rw=1;force_req=2;contactAddress=20;BE1=4'b1000;BE2=4'b0000;
 //AD<=32'b00000000000000000000000000010100;
 
 
 #2
-data=32'd1024;
+data1=32'd1024;data2=32'b11100000000000000000000000000000;;
 rw=1;force_req=3;contactAddress=20;BE1=4'b1000;BE2=4'b0000;
 //AD<=32'b00000000000000000000000000010100;
 
 #2
-data=32'd252;
+data1=32'd252;
+data2=32'b11100000000000000000000000000000;
 rw=1;force_req=2;contactAddress=20;BE1=4'b1000;BE2=4'b0000;
 //AD<=32'b00000000000000000000000000010100;
 
 #2
-data=32'd1024;
+data1=32'd1024;data2=32'b11100000000000000000000000000000;;
 rw=1;force_req=2;contactAddress=20;BE1=4'b1000;BE2=4'b0000;
 //AD<=32'b00000000000000000000000000010100;
 
 #2
-data=32'd1024;
+data1=32'd1024;data2=32'b11100000000000000000000000000000;;
 rw=1;force_req=0;contactAddress=20;BE1=4'b1000;BE2=4'b0000;
 //AD<=32'b00000000000000000000000000010100;
+/****************************************************************READ******************************************************************************/
+
+
+#2
+data1=32'd253;
+data2=32'b11100000000000000000000000000000;
+rw=1;force_req=1;contactAddress=10;BE1=4'b0000;BE2=4'b0000;
+//AD<=32'b00000000000000000000000000010100;
+
+
+#2
+data1=32'd1026;data2=32'b11100000000000000000000000000000;;
+rw=1;force_req=2;contactAddress=10;BE1=4'b0000;BE2=4'b0000;
+//AD<=32'b00000000000000000000000000010100;
+
+#2
+data1=32'd252;
+data2=32'b11100000000000000000000000000000;
+rw=1;force_req=2;contactAddress=20;BE1=4'b0000;BE2=4'b0000;
+//AD<=32'b00000000000000000000000000010100;
+
+
+#2
+data1=32'd1024;data2=32'b11100000000000000000000000000000;;
+rw=1;force_req=2;contactAddress=20;BE1=4'b0000;BE2=4'b0000;
+//AD<=32'b00000000000000000000000000010100;
+
+
+#2
+data1=32'd1024;data2=32'b11100000000000000000000000000000;;
+rw=1;force_req=3;contactAddress=20;BE1=4'b0000;BE2=4'b0000;
+//AD<=32'b00000000000000000000000000010100;
+
+#2
+data1=32'd252;
+data2=32'b11100000000000000000000000000000;
+rw=1;force_req=2;contactAddress=20;BE1=4'b0000;BE2=4'b0000;
+//AD<=32'b00000000000000000000000000010100;
+
+#2
+data1=32'd1024;data2=32'b11100000000000000000000000000000;;
+rw=1;force_req=2;contactAddress=20;BE1=4'b0000;BE2=4'b0000;
+//AD<=32'b00000000000000000000000000010100;
+
+#2
+data1=32'd1024;data2=32'b11100000000000000000000000000000;;
+rw=1;force_req=0;contactAddress=20;BE1=4'b0000;BE2=4'b0000;
+//AD<=32'b00000000000000000000000000010100;
+
 
 $display("\nAD: %b",AD);
+
+
 /*
 #2
-data=32'b01110110011001110111011001100111;
+data1=32'b01110data2=32'b11100000000000000000000000000000;0110011001110111011001100111;
 rw=0;force_req=0;contactAddress=20;BE1=4'b1000;BE2=4'b0000;
 //AD<=32'b00000000000000000000000000010100;
 #2
